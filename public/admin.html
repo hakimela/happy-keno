@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Happy Keno 80 — Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      background-color: #0B0906;
+      color: #FBF8F1;
+      font-family: 'Inter', sans-serif;
+    }
+    .panel {
+      background: linear-gradient(180deg, #1C170E 0%, #14110B 100%);
+      border: 1px solid rgba(245, 196, 81, 0.24);
+    }
+  </style>
+</head>
+<body class="min-h-screen p-4 sm:p-6">
+  <div class="max-w-5xl mx-auto flex flex-col gap-5">
+    <header class="panel rounded-2xl p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <span class="px-2 py-0.5 rounded bg-amber-400/15 border border-amber-400/35 text-amber-300 font-mono text-xs font-bold">
+          HAPPY KENO 80 • ADMIN
+        </span>
+        <h1 class="text-xl sm:text-2xl font-black text-white mt-1">Admin Control &amp; Audit Logs</h1>
+        <p class="text-xs text-stone-400 mt-0.5">Monitor server health, payment lines, SHA-256 round seeds &amp; logged transactions</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="/" class="px-3.5 py-2 rounded-xl bg-[#231D12] border border-amber-500/25 text-amber-300 text-xs font-bold hover:bg-[#2E2617]">
+          ← Mini App
+        </a>
+        <button id="refreshBtn" type="button" onclick="loadAdminData()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-yellow-300 to-amber-500 text-[#0B0906] text-xs font-black">
+          Refresh Data
+        </button>
+      </div>
+    </header>
+
+    <div id="authNotice" class="hidden rounded-xl border border-rose-500/40 bg-rose-950/50 text-rose-200 px-4 py-3 text-xs font-bold">
+      Unauthorized or cancelled login. Refresh the page and enter valid ADMIN_USER and ADMIN_PASS.
+    </div>
+
+    <section class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div class="panel rounded-2xl p-4">
+        <span class="text-[11px] font-mono uppercase text-amber-300">Server Status</span>
+        <div id="serverStatus" class="text-xl font-black text-emerald-400 mt-1">Checking...</div>
+        <div id="startedAtText" class="text-[11px] font-mono text-stone-400 mt-1">—</div>
+      </div>
+      <div class="panel rounded-2xl p-4">
+        <span class="text-[11px] font-mono uppercase text-amber-300">Verified Rounds</span>
+        <div id="roundsCount" class="text-2xl font-mono font-black text-white mt-1">0</div>
+        <div class="text-[11px] text-stone-400 mt-1">SHA-256 seed checks</div>
+      </div>
+      <div class="panel rounded-2xl p-4">
+        <span class="text-[11px] font-mono uppercase text-amber-300">Logged Transactions</span>
+        <div id="txCount" class="text-2xl font-mono font-black text-amber-300 mt-1">0</div>
+        <div class="text-[11px] text-stone-400 mt-1">Min 50 – Max 5,000 ETB</div>
+      </div>
+    </section>
+
+    <section class="panel rounded-2xl p-4 sm:p-5 flex flex-col gap-2.5">
+      <h2 class="text-xs font-mono font-extrabold uppercase tracking-wider text-amber-300">Official Payment Channels</h2>
+      <div id="paymentChannels" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 font-mono text-xs">
+        <div class="rounded-xl bg-[#120E08] border border-amber-500/20 p-3">Telebirr: <strong class="text-amber-300">0901047714</strong></div>
+        <div class="rounded-xl bg-[#120E08] border border-amber-500/20 p-3">CBE Birr: <strong class="text-amber-300">0907918383</strong></div>
+        <div class="rounded-xl bg-[#120E08] border border-amber-500/20 p-3">EBIRR: <strong class="text-amber-300">0901047714</strong></div>
+      </div>
+    </section>
+
+    <section class="panel rounded-2xl p-4 sm:p-5 flex flex-col gap-3">
+      <h2 class="text-xs font-mono font-extrabold uppercase tracking-wider text-amber-300">Recent Transactions</h2>
+      <div id="txTable" class="overflow-x-auto text-xs font-mono">
+        <p class="text-stone-500 py-3">No transactions logged yet.</p>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    async function loadAdminData() {
+      const notice = document.getElementById('authNotice');
+      try {
+        const res = await fetch('/api/admin/overview');
+        if (res.status === 401 || res.status === 403) {
+          notice.classList.remove('hidden');
+          document.getElementById('serverStatus').textContent = 'Auth Required';
+          document.getElementById('serverStatus').className = 'text-xl font-black text-rose-400 mt-1';
+          return;
+        }
+        notice.classList.add('hidden');
+        const data = await res.json();
+
+        document.getElementById('serverStatus').textContent = 'ONLINE';
+        document.getElementById('serverStatus').className = 'text-xl font-black text-emerald-400 mt-1';
+        document.getElementById('startedAtText').textContent = `Up since ${new Date(data.startedAt).toLocaleString()}`;
+        document.getElementById('roundsCount').textContent = data.counts.verifiedRounds;
+        document.getElementById('txCount').textContent = data.counts.loggedTransactions;
+
+        const p = data.config.payments;
+        document.getElementById('paymentChannels').innerHTML = `
+          <div class="rounded-xl bg-[#120E08] border border-amber-500/20 p-3">Telebirr: <strong class="text-amber-300">${p.telebirr}</strong></div>
+          <div class="rounded-xl bg-[#120E08] border border-amber-500/20 p-3">CBE Birr: <strong class="text-amber-300">${p.cbeBirr}</strong></div>
+          <div class="rounded-xl bg-[#120E08] border border-amber-500/20 p-3">EBIRR: <strong class="text-amber-300">${p.ebirr}</strong></div>
+        `;
+
+        const txContainer = document.getElementById('txTable');
+        if (!data.recentTransactions.length) {
+          txContainer.innerHTML = '<p class="text-stone-500 py-3">No transactions logged yet.</p>';
+        } else {
+          txContainer.innerHTML = `
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-amber-500/20 text-amber-300/80 text-[11px]">
+                  <th class="py-2 pr-3">ID</th>
+                  <th class="py-2 pr-3">Type</th>
+                  <th class="py-2 pr-3">Method</th>
+                  <th class="py-2 pr-3">Amount</th>
+                  <th class="py-2 pr-3">Status</th>
+                  <th class="py-2">Time</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-amber-500/10">
+                ${data.recentTransactions.map(tx => `
+                  <tr>
+                    <td class="py-2 pr-3 text-stone-300">${tx.id}</td>
+                    <td class="py-2 pr-3 text-amber-300 font-bold">${tx.type}</td>
+                    <td class="py-2 pr-3">${tx.method}</td>
+                    <td class="py-2 pr-3 text-emerald-400 font-bold">${tx.amount} ETB</td>
+                    <td class="py-2 pr-3">${tx.status}</td>
+                    <td class="py-2 text-stone-400">${new Date(tx.createdAt).toLocaleTimeString()}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+      } catch (err) {
+        document.getElementById('serverStatus').textContent = 'OFFLINE';
+        document.getElementById('serverStatus').className = 'text-xl font-black text-rose-400 mt-1';
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', loadAdminData);
+  </script>
+</body>
+</html>
