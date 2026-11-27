@@ -1,0 +1,18 @@
+{
+  "name": "happy-keno-80-telegram-mini-app",
+  "version": "1.0.0",
+  "description": "Happy Keno 80 — Telegram Mini App (EN / Amharic) with Express server and Admin panel",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
