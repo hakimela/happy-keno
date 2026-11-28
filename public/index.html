@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Happy Keno 80 — Telegram Mini App</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=JetBrains+Mono:wght@600;700;800&family=Noto+Sans+Ethiopic:wght@500;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      background-color: #0B0906;
+      color: #FBF8F1;
+      font-family: 'Inter', 'Noto Sans Ethiopic', sans-serif;
+    }
+    .font-mono-num {
+      font-family: 'JetBrains Mono', 'Noto Sans Ethiopic', monospace;
+    }
+    .panel {
+      background: linear-gradient(180deg, #1C170E 0%, #130F09 100%);
+      border: 1px solid rgba(245, 196, 81, 0.22);
+    }
+    .keno-ball {
+      aspect-ratio: 1 / 1;
+      transition: transform 0.12s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .keno-ball:active {
+      transform: scale(0.93);
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-10">
+  <div class="max-w-xl mx-auto px-3.5 pt-4 flex flex-col gap-4">
+
+    <!-- Header -->
+    <header class="panel rounded-2xl p-4 flex items-center justify-between gap-3">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded bg-amber-400/15 border border-amber-400/35 text-amber-300 font-mono-num text-[11px] font-bold">
+            HAPPY KENO 80
+          </span>
+          <span id="tgUserBadge" class="text-[11px] text-stone-400 truncate max-w-[140px]">Guest</span>
+        </div>
+        <h1 id="appTitle" class="text-lg sm:text-xl font-black text-white mt-1">80-Ball Keno Arena</h1>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="langBtn" type="button" onclick="toggleLang()" class="px-3 py-1.5 rounded-xl bg-[#241D11] border border-amber-400/30 text-amber-300 text-xs font-extrabold hover:bg-[#2F2616]">
+          አማርኛ
+        </button>
+        <a href="/admin" class="px-3 py-1.5 rounded-xl bg-[#1A150D] border border-stone-700 text-stone-300 text-xs font-bold hover:border-amber-400/40">
+          Admin
+        </a>
+      </div>
+    </header>
+
+    <!-- Balance & Stake Bar -->
+    <section class="grid grid-cols-2 gap-3">
+      <div class="panel rounded-2xl p-3.5">
+        <span id="lblBalance" class="text-[11px] font-bold uppercase tracking-wider text-amber-300/80">Wallet Balance</span>
+        <div id="balanceDisplay" class="text-xl sm:text-2xl font-mono-num font-black text-emerald-400 mt-1">500.00 ETB</div>
+        <div class="text-[11px] text-stone-400 mt-0.5">50 – 5,000 ETB</div>
+      </div>
+
+      <div class="panel rounded-2xl p-3.5">
+        <span id="lblStake" class="text-[11px] font-bold uppercase tracking-wider text-amber-300/80">Bet Stake (ETB)</span>
+        <div class="flex items-center gap-1.5 mt-1">
+          <input id="stakeInput" type="number" min="50" max="5000" step="10" value="50"
+            class="w-full rounded-xl bg-[#0D0A06] border border-amber-500/30 px-2.5 py-1.5 font-mono-num text-sm font-bold text-white focus:outline-none focus:border-amber-400" />
+        </div>
+        <div class="flex gap-1 mt-1.5">
+          <button type="button" onclick="setStake(50)" class="flex-1 py-1 rounded-lg bg-[#231C11] text-[11px] font-mono-num font-bold text-amber-200">50</button>
+          <button type="button" onclick="setStake(100)" class="flex-1 py-1 rounded-lg bg-[#231C11] text-[11px] font-mono-num font-bold text-amber-200">100</button>
+          <button type="button" onclick="setStake(500)" class="flex-1 py-1 rounded-lg bg-[#231C11] text-[11px] font-mono-num font-bold text-amber-200">500</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Status / Result Banner -->
+    <div id="statusBanner" class="hidden rounded-2xl px-4 py-3 text-xs sm:text-sm font-bold border"></div>
+
+    <!-- 80-Ball Keno Board -->
+    <section class="panel rounded-2xl p-3.5 sm:p-4 flex flex-col gap-3">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <h2 id="lblBoardTitle" class="text-sm font-extrabold text-amber-300">Pick up to 10 Numbers (1–80)</h2>
+          <p id="selectedSummary" class="text-xs text-stone-400 font-mono-num mt-0.5">Selected: 0 / 10</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="quickPickBtn" type="button" onclick="quickPick()" class="px-3 py-1.5 rounded-xl bg-[#251E12] border border-amber-400/25 text-amber-200 text-xs font-bold hover:bg-[#312717]">
+            Quick Pick
+          </button>
+          <button id="clearPickBtn" type="button" onclick="clearSelection()" class="px-3 py-1.5 rounded-xl bg-[#19140C] border border-stone-700 text-stone-300 text-xs font-bold hover:bg-[#241D12]">
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <div id="kenoGrid" class="grid grid-cols-10 gap-1 sm:gap-1.5"></div>
+
+      <button id="playBtn" type="button" onclick="playRound()"
+        class="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-300 via-amber-400 to-amber-500 text-[#0B0906] font-black text-sm tracking-wide shadow-lg hover:brightness-105 active:scale-[0.99] transition">
+        DRAW 20 BALLS • PLAY NOW
+      </button>
+
+      <!-- Drawn Numbers & Seed -->
+      <div id="drawResultBox" class="hidden rounded-xl bg-[#0E0B07] border border-amber-500/20 p-3 flex flex-col gap-2">
+        <div class="flex items-center justify-between text-xs">
+          <span id="lblDrawnBalls" class="font-bold text-amber-300">Drawn Numbers (20)</span>
+          <span id="matchSummary" class="font-mono-num font-extrabold text-emerald-400"></span>
+        </div>
+        <div id="drawnBallsList" class="flex flex-wrap gap-1.5"></div>
+        <div id="roundSeedText" class="text-[10px] font-mono-num text-stone-500 break-all"></div>
+      </div>
+    </section>
+
+    <!-- Wallet Tabs (Deposit & Withdraw) -->
+    <section class="panel rounded-2xl p-4 flex flex-col gap-3.5">
+      <div class="flex items-center justify-between">
+        <h2 id="lblWalletTitle" class="text-sm font-extrabold text-amber-300">Ethiopian Wallet Channels</h2>
+        <div class="flex rounded-xl bg-[#0D0A06] p-1 border border-amber-500/20 text-xs font-bold">
+          <button id="tabDeposit" type="button" onclick="switchWalletTab('deposit')" class="px-3 py-1 rounded-lg bg-amber-400 text-[#0B0906]">
+            Deposit
+          </button>
+          <button id="tabWithdraw" type="button" onclick="switchWalletTab('withdraw')" class="px-3 py-1 rounded-lg text-stone-300">
+            Withdraw
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono-num">
+        <div class="rounded-xl bg-[#100C07] border border-amber-500/20 p-2.5">
+          <span class="text-stone-400 block text-[10px]">TELEBIRR</span>
+          <strong id="payTelebirr" class="text-amber-300">0901047714</strong>
+        </div>
+        <div class="rounded-xl bg-[#100C07] border border-amber-500/20 p-2.5">
+          <span class="text-stone-400 block text-[10px]">CBE BIRR</span>
+          <strong id="payCbe" class="text-amber-300">0907918383</strong>
+        </div>
+        <div class="rounded-xl bg-[#100C07] border border-amber-500/20 p-2.5">
+          <span class="text-stone-400 block text-[10px]">EBIRR</span>
+          <strong id="payEbirr" class="text-amber-300">0901047714</strong>
+        </div>
+      </div>
+
+      <form id="walletForm" onsubmit="submitWallet(event)" class="flex flex-col gap-2.5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label id="lblMethod" class="block text-[11px] font-bold text-stone-400 mb-1">Payment Method</label>
+            <select id="walletMethod" class="w-full rounded-xl bg-[#0D0A06] border border-amber-500/25 px-3 py-2 text-xs font-bold text-white">
+              <option value="TELEBIRR">Telebirr</option>
+              <option value="CBE_BIRR">CBE Birr</option>
+              <option value="EBIRR">EBIRR</option>
+            </select>
+          </div>
+          <div>
+            <label id="lblAmount" class="block text-[11px] font-bold text-stone-400 mb-1">Amount (50 – 5,000 ETB)</label>
+            <input id="walletAmount" type="number" min="50" max="5000" required value="100"
+              class="w-full rounded-xl bg-[#0D0A06] border border-amber-500/25 px-3 py-2 font-mono-num text-xs font-bold text-white" />
+          </div>
+        </div>
+
+        <div id="accountRefGroup">
+          <label id="lblAccountRef" class="block text-[11px] font-bold text-stone-400 mb-1">Transaction Ref / Phone Number</label>
+          <input id="walletRef" type="text" placeholder="e.g. FT26332... or 09..."
+            class="w-full rounded-xl bg-[#0D0A06] border border-amber-500/25 px-3 py-2 text-xs text-white" />
+        </div>
+
+        <button id="walletSubmitBtn" type="submit"
+          class="w-full py-2.5 rounded-xl bg-emerald-500 text-[#07110B] font-black text-xs sm:text-sm hover:brightness-105 transition">
+          SUBMIT DEPOSIT REQUEST
+        </button>
+      </form>
+    </section>
+  </div>
+
+  <script>
+    const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      const u = tg.initDataUnsafe && tg.initDataUnsafe.user;
+      if (u) {
+        document.getElementById('tgUserBadge').textContent = u.username ? `@${u.username}` : u.first_name;
+      }
+    }
+
+    const i18n = {
+      en: {
+        title: '80-Ball Keno Arena',
+        langBtn: 'አማርኛ',
+        balance: 'Wallet Balance',
+        stake: 'Bet Stake (ETB)',
+        boardTitle: 'Pick up to 10 Numbers (1–80)',
+        selected: (n) => `Selected: ${n} / 10`,
+        quickPick: 'Quick Pick',
+        clear: 'Clear',
+        playBtn: 'DRAW 20 BALLS • PLAY NOW',
+        drawnBalls: 'Drawn Numbers (20)',
+        walletTitle: 'Ethiopian Wallet Channels',
+        depositTab: 'Deposit',
+        withdrawTab: 'Withdraw',
+        method: 'Payment Method',
+        amount: 'Amount (50 – 5,000 ETB)',
+        refDeposit: 'Transaction Ref / Sender Phone',
+        refWithdraw: 'Receiving Account / Phone Number',
+        submitDeposit: 'SUBMIT DEPOSIT REQUEST',
+        submitWithdraw: 'SUBMIT WITHDRAWAL REQUEST'
+      },
+      am: {
+        title: '80-ኳስ ኬኖ መጫወቻ',
+        langBtn: 'EN',
+        balance: 'የዋሌት ቀሪ ሂሳብ',
+        stake: 'የውርርድ መጠን (ETB)',
+        boardTitle: 'እስከ 10 ቁጥሮች ይምረጡ (1–80)',
+        selected: (n) => `የተመረጡ: ${n} / 10`,
+        quickPick: 'ፈጣን ምርጫ',
+        clear: 'አጽዳ',
+        playBtn: '20 ኳሶችን አውጣ • አሁን ተጫወት',
+        drawnBalls: 'የወጡ ቁጥሮች (20)',
+        walletTitle: 'የኢትዮጵያ የክፍያ መስመሮች',
+        depositTab: 'ገቢ አድርግ',
+        withdrawTab: 'ወጪ አድርግ',
+        method: 'የክፍያ ዘዴ',
+        amount: 'መጠን (50 – 5,000 ETB)',
+        refDeposit: 'የክፍያ ማረጋገጫ ቁጥር / ስልክ',
+        refWithdraw: 'ገንዘብ የሚቀበል ስልክ / አካውንት',
+        submitDeposit: 'የገቢ ጥያቄ ላክ',
+        submitWithdraw: 'የወጪ ጥያቄ ላክ'
+      }
+    };
+
+    let lang = 'en';
+    let walletMode = 'deposit';
+    let balance = 500;
+    let selectedNumbers = new Set();
+    let lastDrawn = new Set();
+
+    function applyLanguage() {
+      const t = i18n[lang];
+      document.getElementById('appTitle').textContent = t.title;
+      document.getElementById('langBtn').textContent = t.langBtn;
+      document.getElementById('lblBalance').textContent = t.balance;
+      document.getElementById('lblStake').textContent = t.stake;
+      document.getElementById('lblBoardTitle').textContent = t.boardTitle;
+      document.getElementById('selectedSummary').textContent = t.selected(selectedNumbers.size);
+      document.getElementById('quickPickBtn').textContent = t.quickPick;
+      document.getElementById('clearPickBtn').textContent = t.clear;
+      document.getElementById('playBtn').textContent = t.playBtn;
+      document.getElementById('lblDrawnBalls').textContent = t.drawnBalls;
+      document.getElementById('lblWalletTitle').textContent = t.walletTitle;
+      document.getElementById('tabDeposit').textContent = t.depositTab;
+      document.getElementById('tabWithdraw').textContent = t.withdrawTab;
+      document.getElementById('lblMethod').textContent = t.method;
+      document.getElementById('lblAmount').textContent = t.amount;
+      document.getElementById('lblAccountRef').textContent = walletMode === 'deposit' ? t.refDeposit : t.refWithdraw;
+      document.getElementById('walletSubmitBtn').textContent = walletMode === 'deposit' ? t.submitDeposit : t.submitWithdraw;
+    }
+
+    function toggleLang() {
+      lang = lang === 'en' ? 'am' : 'en';
+      applyLanguage();
+    }
+
+    function updateBalanceDisplay() {
+      document.getElementById('balanceDisplay').textContent = `${Number(balance).toFixed(2)} ETB`;
+    }
+
+    function setStake(val) {
+      document.getElementById('stakeInput').value = val;
+    }
+
+    function showBanner(msg, type = 'info') {
+      const el = document.getElementById('statusBanner');
+      el.classList.remove('hidden', 'border-emerald-500/40', 'bg-emerald-950/50', 'text-emerald-200', 'border-rose-500/40', 'bg-rose-950/50', 'text-rose-200', 'border-amber-500/40', 'bg-amber-950/40', 'text-amber-200');
+      if (type === 'success') {
+        el.classList.add('border-emerald-500/40', 'bg-emerald-950/50', 'text-emerald-200');
+      } else if (type === 'error') {
+        el.classList.add('border-rose-500/40', 'bg-rose-950/50', 'text-rose-200');
+      } else {
+        el.classList.add('border-amber-500/40', 'bg-amber-950/40', 'text-amber-200');
+      }
+      el.textContent = msg;
+    }
+
+    function renderGrid() {
+      const grid = document.getElementById('kenoGrid');
+      grid.innerHTML = '';
+      for (let n = 1; n <= 80; n++) {
+        const isPicked = selectedNumbers.has(n);
+        const isDrawn = lastDrawn.has(n);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = n;
+
+        let cls = 'keno-ball rounded-lg font-mono-num text-xs font-extrabold flex items-center justify-center border ';
+        if (isPicked && isDrawn) {
+          cls += 'bg-emerald-400 text-[#08130C] border-emerald-200 shadow-md';
+        } else if (isPicked) {
+          cls += 'bg-amber-400 text-[#0B0906] border-amber-200 shadow';
+        } else if (isDrawn) {
+          cls += 'bg-amber-500/25 text-amber-200 border-amber-400/50';
+        } else {
+          cls += 'bg-[#120E08] text-stone-200 border-amber-500/15 hover:border-amber-400/40';
+        }
+
+        btn.className = cls;
+        btn.onclick = () => toggleNumber(n);
+        grid.appendChild(btn);
+      }
+      document.getElementById('selectedSummary').textContent = i18n[lang].selected(selectedNumbers.size);
+    }
+
+    function toggleNumber(n) {
+      if (selectedNumbers.has(n)) {
+        selectedNumbers.delete(n);
+      } else {
+        if (selectedNumbers.size >= 10) {
+          showBanner(lang === 'am' ? 'እስከ 10 ቁጥሮች ብቻ መምረጥ ይችላሉ።' : 'Maximum 10 numbers allowed.', 'error');
+          return;
+        }
+        selectedNumbers.add(n);
+      }
+      renderGrid();
+    }
+
+    function quickPick() {
+      selectedNumbers.clear();
+      const pool = Array.from({ length: 80 }, (_, i) => i + 1);
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      pool.slice(0, 6).forEach((n) => selectedNumbers.add(n));
+      lastDrawn.clear();
+      document.getElementById('drawResultBox').classList.add('hidden');
+      renderGrid();
+    }
+
+    function clearSelection() {
+      selectedNumbers.clear();
+      lastDrawn.clear();
+      document.getElementById('drawResultBox').classList.add('hidden');
+      renderGrid();
+    }
+
+    function localFallbackDraw() {
+      const pool = Array.from({ length: 80 }, (_, i) => i + 1);
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      return { drawn: pool.slice(0, 20).sort((a, b) => a - b), seed: 'local-preview-' + Date.now() };
+    }
+
+    async function playRound() {
+      const stake = Number(document.getElementById('stakeInput').value);
+      if (!selectedNumbers.size) {
+        showBanner(lang === 'am' ? 'እባክዎ ቢያንስ 1 ቁጥር ይምረጡ።' : 'Please pick at least 1 number.', 'error');
+        return;
+      }
+      if (Number.isNaN(stake) || stake < 50 || stake > 5000) {
+        showBanner(lang === 'am' ? 'የውርርድ መጠን ከ 50 እስከ 5,000 ETB መሆን አለበት።' : 'Stake must be between 50 and 5,000 ETB.', 'error');
+        return;
+      }
+      if (stake > balance) {
+        showBanner(lang === 'am' ? 'በቂ ቀሪ ሂሳብ የለዎትም። እባክዎ ገቢ ያድርጉ።' : 'Insufficient balance. Please deposit first.', 'error');
+        return;
+      }
+
+      const picks = Array.from(selectedNumbers);
+      let drawn = [];
+      let seed = '';
+
+      try {
+        const res = await fetch('/api/keno/draw', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ picks, stake })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          drawn = Array.isArray(data.drawn) ? data.drawn : [];
+          seed = data.seed || data.hash || '';
+          if (typeof data.balance === 'number') balance = data.balance;
+        }
+      } catch (_) {}
+
+      if (!drawn.length) {
+        const fallback = localFallbackDraw();
+        drawn = fallback.drawn;
+        seed = fallback.seed;
+        balance = balance - stake;
+      }
+
+      const hits = picks.filter((n) => drawn.includes(n));
+      const multiplier = hits.length >= 5 ? hits.length * 1.5 : hits.length >= 2 ? 1.2 : 0;
+      const payout = Math.round(stake * multiplier * 100) / 100;
+      if (payout > 0) balance += payout;
+
+      lastDrawn = new Set(drawn);
+      updateBalanceDisplay();
+      renderGrid();
+
+      const box = document.getElementById('drawResultBox');
+      box.classList.remove('hidden');
+      document.getElementById('matchSummary').textContent = `Hits: ${hits.length}/${picks.length} • Win: ${payout.toFixed(2)} ETB`;
+      document.getElementById('drawnBallsList').innerHTML = drawn
+        .map((n) => {
+          const hit = selectedNumbers.has(n);
+          return `<span class="w-7 h-7 rounded-full font-mono-num text-xs font-extrabold flex items-center justify-center ${hit ? 'bg-emerald-400 text-[#08130C]' : 'bg-[#1D170E] text-amber-200 border border-amber-500/20'}">${n}</span>`;
+        })
+        .join('');
+      document.getElementById('roundSeedText').textContent = seed ? `Seed / Proof: ${seed}` : '';
+
+      if (payout > 0) {
+        showBanner(
+          lang === 'am'
+            ? `እንኳን ደስ አለዎት! ${hits.length} ቁጥር አግኝተዋል — ${payout.toFixed(2)} ETB አሸንፈዋል።`
+            : `Congrats! Matched ${hits.length} number(s) and won ${payout.toFixed(2)} ETB.`,
+          'success'
+        );
+      } else {
+        showBanner(
+          lang === 'am'
+            ? `${hits.length} ቁጥር ተዛምዷል። እንደገና ይሞክሩ!`
+            : `Matched ${hits.length} number(s). Try another round!`,
+          'info'
+        );
+      }
+    }
+
+    function switchWalletTab(mode) {
+      walletMode = mode;
+      const depBtn = document.getElementById('tabDeposit');
+      const witBtn = document.getElementById('tabWithdraw');
+      if (mode === 'deposit') {
+        depBtn.className = 'px-3 py-1 rounded-lg bg-amber-400 text-[#0B0906]';
+        witBtn.className = 'px-3 py-1 rounded-lg text-stone-300';
+      } else {
+        witBtn.className = 'px-3 py-1 rounded-lg bg-amber-400 text-[#0B0906]';
+        depBtn.className = 'px-3 py-1 rounded-lg text-stone-300';
+      }
+      applyLanguage();
+    }
+
+    async function submitWallet(e) {
+      e.preventDefault();
+      const method = document.getElementById('walletMethod').value;
+      const amount = Number(document.getElementById('walletAmount').value);
+      const reference = document.getElementById('walletRef').value.trim();
+
+      if (Number.isNaN(amount) || amount < 50 || amount > 5000) {
+        showBanner(lang === 'am' ? 'መጠኑ ከ 50 እስከ 5,000 ETB መሆን አለበት።' : 'Amount must be between 50 and 5,000 ETB.', 'error');
+        return;
+      }
+
+      const endpoint = walletMode === 'deposit' ? '/api/wallet/deposit' : '/api/wallet/withdraw';
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ method, amount, reference })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showBanner(data.error || data.message || 'Request failed.', 'error');
+          return;
+        }
+        if (typeof data.balance === 'number') {
+          balance = data.balance;
+          updateBalanceDisplay();
+        }
+        document.getElementById('walletRef').value = '';
+        showBanner(
+          data.message ||
+            (lang === 'am'
+              ? `የ${walletMode === 'deposit' ? 'ገቢ' : 'ወጪ'} ጥያቄዎ (${amount} ETB - ${method}) ተመዝግቧል።`
+              : `${walletMode === 'deposit' ? 'Deposit' : 'Withdrawal'} request (${amount} ETB via ${method}) logged.`),
+          'success'
+        );
+      } catch (_) {
+        showBanner(lang === 'am' ? 'ከሰርቨር ጋር መገናኘት አልተቻለም።' : 'Could not reach server.', 'error');
+      }
+    }
+
+    async function loadPublicConfig() {
+      try {
+        const res = await fetch('/api/config');
+        if (!res.ok) return;
+        const cfg = await res.json();
+        if (cfg.payments) {
+          if (cfg.payments.telebirr) document.getElementById('payTelebirr').textContent = cfg.payments.telebirr;
+          if (cfg.payments.cbeBirr) document.getElementById('payCbe').textContent = cfg.payments.cbeBirr;
+          if (cfg.payments.ebirr) document.getElementById('payEbirr').textContent = cfg.payments.ebirr;
+        }
+      } catch (_) {}
+    }
+
+    renderGrid();
+    updateBalanceDisplay();
+    applyLanguage();
+    loadPublicConfig();
+  </script>
+</body>
+</html>
